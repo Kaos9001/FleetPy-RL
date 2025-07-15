@@ -321,6 +321,14 @@ G_OP_PA_ASSTH = "op_parcel_assignment_threshold"
 G_OP_PA_OBASS = "op_parcel_passenger_ob_assignment"
 G_OP_PA_REDEL = "op_parcel_remaining_delivery_time"
 
+# RL
+G_RL_TIME_STEP = "op_rl_action_timestep"
+
+# Hub RL
+G_OP_HUB_MID_DUR = "op_hub_max_time_to_midpoint"
+G_OP_HUB_RT_DUR = "op_hub_roundtrip_max_duration"
+G_ACTION_ID = "action_id"
+
 # -------------------------------------------------------------------------------------------------------------------- #
 # Charging Stations/Depots
 # ------------------------

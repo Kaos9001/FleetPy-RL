@@ -177,13 +177,16 @@ class RLBatchOfferSimulation(BatchOfferSimulation):
         if self.skip_output:
             return
 
-        output_dir = self.dir_names[G_DIR_OUTPUT]
-        outputfile = os.path.join(output_dir, "3-0_RL_action_time.csv")
-        for op_id, op_obj in enumerate(self.operators):
-            op_obj.output_assigned_zone_time(outputfile)
-        outputfile = os.path.join(output_dir, "3-0_n_SAV_zone.csv")
-        for op_id, op_obj in enumerate(self.operators):
-            op_obj.output_no_sav_zone_assigned_time(outputfile)
-        outputfile = os.path.join(output_dir, "3-0_RL_state_time.csv")
-        for op_id, op_obj in enumerate(self.operators):
-            op_obj.output_state_df(outputfile)
+        try:
+            output_dir = self.dir_names[G_DIR_OUTPUT]
+            outputfile = os.path.join(output_dir, "3-0_RL_action_time.csv")
+            for op_id, op_obj in enumerate(self.operators):
+                op_obj.output_assigned_zone_time(outputfile)
+            outputfile = os.path.join(output_dir, "3-0_n_SAV_zone.csv")
+            for op_id, op_obj in enumerate(self.operators):
+                op_obj.output_no_sav_zone_assigned_time(outputfile)
+            outputfile = os.path.join(output_dir, "3-0_RL_state_time.csv")
+            for op_id, op_obj in enumerate(self.operators):
+                op_obj.output_state_df(outputfile)
+        except:
+            pass
