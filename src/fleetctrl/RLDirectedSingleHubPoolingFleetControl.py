@@ -105,7 +105,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         self.wrong_action_penalty = 0
         self.rw_rejection_penalty = 1
-        self.rw_drive_distance_penalty = 1/1000
+        self.rw_drive_distance_penalty = 1/10000
         self.rw_waiting_time_penalty = 1/300
 
         # grid specific
@@ -117,6 +117,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         self.rejection_counter = 0
         self.driven_distance_dict = {}
 
+        # use moving average here?
         self.waiting_times = []
 
 
@@ -189,8 +190,6 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         if simulation_time % self.rl_action_time_step == 0:
             self.reward = 0
             self.rejection_counter = 0
-            for vid, veh_obj in enumerate(self.sim_vehicles):
-                self.driven_distance_dict[vid] = veh_obj.cumulative_distance
             if rl_action:
                 if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] != -1]) == 0:
                     if rl_action != -1:
@@ -277,6 +276,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         total_driven_delta = 0
         for vid, veh_obj in enumerate(self.sim_vehicles):
             total_driven_delta += veh_obj.cumulative_distance - self.driven_distance_dict[vid]
+            self.driven_distance_dict[vid] = veh_obj.cumulative_distance
         reward -= total_driven_delta * self.rw_drive_distance_penalty
 
         avg_wait = sum(self.waiting_times)/max(len(self.waiting_times), 1)
