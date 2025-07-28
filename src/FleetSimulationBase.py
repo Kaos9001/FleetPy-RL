@@ -125,7 +125,7 @@ class FleetSimulationBase:
         self.t_init_start = time.perf_counter()
         # config
         self.scenario_name = scenario_parameters[G_SCENARIO_NAME]
-        print("-"*80 + f"\nSimulation of scenario {self.scenario_name}")
+        #print("-"*80 + f"\nSimulation of scenario {self.scenario_name}")
         LOG.info(f"General initialization of scenario {self.scenario_name}...")
         
         if scenario_parameters.get("show_progress_bar", True) == False:

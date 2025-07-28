@@ -133,7 +133,7 @@ class NetworkTTMatrix(NetworkBase):
                 o_node_obj.add_next_edge_to(d_node_obj)
                 d_node_obj.add_prev_edge_from(o_node_obj)
         # load TT and TD matrices
-        print(f"\t ... loading network travel time/distance tables ...")
+        #print(f"\t ... loading network travel time/distance tables ...")
         tt_table_f = os.path.join(self.network_name_dir, "ff", "tables", "nn_fastest_tt.npy")
         self.tt_numpy = np.load(tt_table_f)
         self.tt = self.tt_numpy.tolist()
