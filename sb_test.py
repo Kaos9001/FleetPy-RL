@@ -6,11 +6,22 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from FleetPy_gym_rework import FleetPyEnv
 
 from stable_baselines3.common.env_checker import check_env
-
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 
 import torch as th
 import torch.nn as nn
+
+def make_env(RL_config, rank: int, seed: int = 0):
+    def _init() -> gym.Env:
+        env = FleetPyEnv(RL_config)
+        env.reset(seed=seed + rank)
+        return env
+
+    set_random_seed(seed)
+    return _init
 
 class CNNHead(BaseFeaturesExtractor):
     def __init__(self, observation_space, features_dim: int = 256):
@@ -44,18 +55,20 @@ if __name__ == "__main__":
         "sc_file": "large_pool_test.csv",
     }
 
-    env = FleetPyEnv(RL_config)
-    check_env(env)
+    num_cpu = 5  # Number of processes to use
+    env = make_vec_env(FleetPyEnv, n_envs=num_cpu, env_kwargs={"rl_config": RL_config}, vec_env_cls=SubprocVecEnv)
+    #check_env(env)
     print("env created")
 
     policy_kwargs = dict(
         features_extractor_class=CNNHead,
-        features_extractor_kwargs=dict(features_dim=env.action_space.n),
+        features_extractor_kwargs=dict(features_dim=128),
+        normalize_images=False,
     )
 
-    model = DQN("CnnPolicy", env, verbose=1, tensorboard_log="./cnn_tensorboard/", policy_kwargs=policy_kwargs)
+    model = DQN("MlpPolicy", env, verbose=1, tensorboard_log="./dqn_tensorboard/", policy_kwargs=policy_kwargs)
     print("model created")
-    model.learn(total_timesteps=10_000, progress_bar=True, tb_log_name="first_run")
+    model.learn(total_timesteps=250_000, progress_bar=True, tb_log_name="first_run")
     print("model learned")
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10)
     #vec_env = model.get_env()

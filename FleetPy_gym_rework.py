@@ -66,7 +66,7 @@ class FleetPyEnv(gym.Env):
         self.scenario_cfgs = scenario_cfgs
         self.current_config_i = start_config_i
 
-        print(f"Loading simulation environment {self.current_config_i}...")
+        #print(f"Loading simulation environment {self.current_config_i}...")
         self.SF: RLBatchOfferSimulation = load_simulation_environment(self.scenario_cfgs[self.current_config_i])
         self.SF.run(rl_init=True)
         self.sim_time = self.SF.start_time

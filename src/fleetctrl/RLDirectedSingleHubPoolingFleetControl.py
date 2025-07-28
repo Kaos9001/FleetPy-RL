@@ -204,7 +204,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
                                                      rl_action=rl_action)
 
     def setup_spaces(self):
-        max_requests = 10
+        max_requests = 255
         grid_shape = (self.grid_side_length, self.grid_side_length)
 
         self.observation_space = gym.spaces.Box(low=0, high=max_requests, shape=(4, self.grid_side_length, self.grid_side_length))
