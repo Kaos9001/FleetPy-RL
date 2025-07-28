@@ -128,10 +128,10 @@ class FleetPyEnv(gym.Env):
         self.SF.run(rl_init=True)
         self.sim_time = self.SF.start_time
 
-        observation, reward, done, truncated, info  = self.SF.step(self.sim_time,-1)  # do nothing at first timestep
+        observation, reward, done, truncated, info  = self.SF.step(self.sim_time,rl_action=0)  # do nothing at first timestep
         # self.sim_time += self.SF.time_step
 
-        return observation, None  # Return the initial observation
+        return observation, info  # Return the initial observation
 
     def render(self, mode='human', close=False):
         # Render the environment to the screen or another output. This is optional and may not be needed for FleetPy.

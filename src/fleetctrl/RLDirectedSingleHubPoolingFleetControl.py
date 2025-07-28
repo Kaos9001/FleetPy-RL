@@ -103,10 +103,10 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             node_pos = self.routing_engine.return_node_position(node_index)
             self.target_directions_dict[action_id] = node_pos
 
-        self.wrong_action_penalty = 0
-        self.rw_rejection_penalty = 1
+        self.wrong_action_penalty = 100
+        self.rw_rejection_penalty = 10
         self.rw_drive_distance_penalty = 1/10000
-        self.rw_waiting_time_penalty = 1/300
+        self.rw_waiting_time_penalty = 1/600
 
         # grid specific
         self.n_nodes = self.routing_engine.get_number_network_nodes()
@@ -151,6 +151,9 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         #assert self.round_trip_max_duration > self.max_time_to_midpoint
 
+        if type(rl_action) is np.ndarray:
+            rl_action = rl_action.item()
+
         # Set plan to go to midpoint and back
         veh_plan = self.veh_plans[veh_to_activate.vid]
         direction_pos = self.target_directions_dict[rl_action]
@@ -192,16 +195,16 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             self.rejection_counter = 0
             if rl_action:
                 if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] != -1]) == 0:
-                    if rl_action != -1:
+                    if rl_action != 0:
                         self.reward -= self.wrong_action_penalty
-                elif rl_action >= 0:
+                elif rl_action > 0:
                     vid_to_activate = min((vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] != -1),
                                           key=lambda vid: self.vehs_in_hub[vid])
                     self._activate_and_route_vehicle(vid=vid_to_activate, simulation_time=simulation_time,
                                                      rl_action=rl_action)
 
     def setup_spaces(self):
-        max_requests = 1000
+        max_requests = 10
         grid_shape = (self.grid_side_length, self.grid_side_length)
 
         self.observation_space = gym.spaces.Box(low=0, high=max_requests, shape=(4, self.grid_side_length, self.grid_side_length))
@@ -252,8 +255,9 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             req_inb_grid,
             req_outb_grid,
             veh_traj_grid
-        ), axis=-1).reshape((4, self.grid_side_length, self.grid_side_length))
+        ), axis=-1).reshape((4, self.grid_side_length, self.grid_side_length)).astype(np.float32)
         state = np.log(state + 1)
+        #print(state.max())
         return state
 
     def _create_rejection(self, prq: PlanRequest, simulation_time: int):
@@ -282,11 +286,11 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         avg_wait = sum(self.waiting_times)/max(len(self.waiting_times), 1)
         reward -= avg_wait * self.rw_waiting_time_penalty
 
-        print(f"Reward is {reward}")
-        print(f"Total driven delta is {total_driven_delta}")
-        print(f"There were {self.rejection_counter} requests rejected in the last time step")
-        print(f"Average waiting time is {avg_wait}s")
-        print("------------")
+        #print(f"Reward is {reward}")
+        #print(f"Total driven delta is {total_driven_delta}")
+        #print(f"There were {self.rejection_counter} requests rejected in the last time step")
+        #print(f"Average waiting time is {avg_wait}s")
+        #print("------------")
 
         return reward
 
