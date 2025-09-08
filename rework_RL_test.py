@@ -1,7 +1,7 @@
 import os.path
 import sys
 
-from FleetPy_gym_rework import FleetPyEnv
+from GymEnvBase import FleetPyEnv
 
 
 # Main execution

@@ -84,13 +84,19 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         self.sim_start_time = scenario_parameters[G_SIM_START_TIME]
 
-        self.hub_id = (len(routing_engine.nodes) - 1) // 2
+        hubs_f = os.path.join(self.dir_names[G_DIR_INFRA], "hub_nodes.csv")
+        hubs_df = pd.read_csv(hubs_f)
+
+        # Single hub version
+        self.hub_id = hubs_df.iloc[0]["node_index"].item()
+        #self.hub_id = (len(routing_engine.nodes) - 1) // 2
+
         self.hub_pos = self.routing_engine.return_node_position(self.hub_id)
 
         self.max_time_to_midpoint = operator_attributes.get(G_OP_HUB_MID_DUR, LARGE_INT)
         self.round_trip_max_duration = operator_attributes.get(G_OP_HUB_RT_DUR, LARGE_INT)
 
-        # dict of vehicles in hub (vid -> -1  if not in hub (active), else vid -> timestamp of arrival in hub)
+        # dict of vehicles in hub (vid -> -timestamp of departure if not in hub (active), else vid -> timestamp of arrival in hub)
         self.vehs_in_hub = {}
 
         self.target_directions_dict = {}
@@ -103,7 +109,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             node_pos = self.routing_engine.return_node_position(node_index)
             self.target_directions_dict[action_id] = node_pos
 
-        self.wrong_action_penalty = 100
+        self.wrong_action_penalty = 1/3
         self.rw_rejection_penalty = 10
         self.rw_drive_distance_penalty = 1/10000
         self.rw_waiting_time_penalty = 1/600
@@ -145,7 +151,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
     def _activate_and_route_vehicle(self, vid : int, simulation_time, rl_action):
         # Activate vehicle
         veh_to_activate = self.sim_vehicles[vid]
-        self.vehs_in_hub[vid] = -1
+        self.vehs_in_hub[vid] = -simulation_time
         _, inactive_vrl = veh_to_activate.end_current_leg(simulation_time)
         self.receive_status_update(veh_to_activate.vid, simulation_time, [inactive_vrl])
 
@@ -158,13 +164,13 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         veh_plan = self.veh_plans[veh_to_activate.vid]
         direction_pos = self.target_directions_dict[rl_action]
         rl_action_stop = RoutingTargetPlanStop(direction_pos, earliest_start_time=simulation_time,
-                                     latest_start_time=simulation_time + min(self.max_time_to_midpoint, self.max_time_to_midpoint))
+                                     latest_start_time=simulation_time + self.max_time_to_midpoint)
         veh_plan.add_plan_stop(rl_action_stop, veh_to_activate, simulation_time, self.routing_engine)
-        return_to_hub_stop = RoutingTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time, locked=True,
+        return_to_hub_stop = RoutingTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time,
                                               latest_start_time=simulation_time + self.round_trip_max_duration)
         veh_plan.add_plan_stop(return_to_hub_stop, veh_to_activate, simulation_time, self.routing_engine)
         deactivate_stop = RoutingTargetPlanStop(self.hub_pos, locked_end=True, duration=self.sim_end_time,
-                                                planstop_state=G_PLANSTOP_STATES.INACTIVE)
+                                                planstop_state=G_PLANSTOP_STATES.INACTIVE, latest_start_time=simulation_time + self.round_trip_max_duration)
         veh_plan.add_plan_stop(deactivate_stop, veh_to_activate, simulation_time, self.routing_engine)
 
         # Hardcoding replacement for assign_vehicle_plan
@@ -172,9 +178,9 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         new_list_vrls = [
             VehicleRouteLeg(VRL_STATES.ROUTE, direction_pos, {}),
-            VehicleRouteLeg(VRL_STATES.REPO_TARGET, direction_pos, {}, locked=True, duration=0),
+            VehicleRouteLeg(VRL_STATES.REPO_TARGET, direction_pos, {}, duration=0), # locked=True,
             VehicleRouteLeg(VRL_STATES.ROUTE, self.hub_pos, {}),
-            VehicleRouteLeg(VRL_STATES.OUT_OF_SERVICE, self.hub_pos, {}, locked=True, duration=self.sim_end_time),
+            VehicleRouteLeg(VRL_STATES.OUT_OF_SERVICE, self.hub_pos, {}, duration=self.sim_end_time)
         ]
         veh_to_activate.assign_vehicle_plan(new_list_vrls, simulation_time, force_ignore_lock=True)
         self.veh_plans[veh_to_activate.vid] = veh_plan
@@ -184,8 +190,8 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         # self.assign_vehicle_plan(veh_to_activate, veh_plan, simulation_time, add_arg=True)
 
     def receive_status_update(self, vid : int, simulation_time : int, list_finished_VRL : List[VehicleRouteLeg], force_update : bool=True):
-        if self.vehs_in_hub[vid] == -1 and len(self.sim_vehicles[vid].assigned_route) == 1:
-            self.vehs_in_hub[vid] = 0
+        if self.vehs_in_hub[vid] < 0 and len(self.sim_vehicles[vid].assigned_route) == 1:
+            self.vehs_in_hub[vid] = simulation_time
 
         super().receive_status_update(vid, simulation_time, list_finished_VRL, force_update=force_update)
 
@@ -194,14 +200,23 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             self.reward = 0
             self.rejection_counter = 0
             if rl_action:
-                if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] != -1]) == 0:
+                if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0]) == 0:
                     if rl_action != 0:
                         self.reward -= self.wrong_action_penalty
                 elif rl_action > 0:
-                    vid_to_activate = min((vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] != -1),
+                    vid_to_activate = min((vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0),
                                           key=lambda vid: self.vehs_in_hub[vid])
                     self._activate_and_route_vehicle(vid=vid_to_activate, simulation_time=simulation_time,
                                                      rl_action=rl_action)
+
+        for vid in self.vehs_in_hub:
+            if self.vehs_in_hub[vid] < 0 and simulation_time + self.vehs_in_hub[vid] > self.round_trip_max_duration:
+                print(f"[{simulation_time}] Vehicle {vid} overtime: departed at {-self.vehs_in_hub[vid]}")
+                for vrl in self.sim_vehicles[vid].assigned_route:
+                    print(f"\t{vrl}")
+                print(self.veh_plans[vid])
+                print("------------------------------------------")
+                breakpoint()
 
     def setup_spaces(self):
         max_requests = 255
