@@ -202,7 +202,8 @@ class SimulationVehicle:
                 else:
                     self.cl_remaining_route = self._compute_new_route(ca.destination_pos)
                 try:
-                    self.cl_remaining_route.remove(self.pos[0])
+                    if self.pos[1] != ca.destination_pos[0]:
+                        self.cl_remaining_route.remove(self.pos[0])
                 except ValueError:
                     # TODO # check out after ISTTT
                     LOG.warning(f"First node in position {self.pos} not found in currently assigned route {ca.route}!")
