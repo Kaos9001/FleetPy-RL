@@ -69,7 +69,7 @@ class Demand:
 
     def load_demand_file(self, start_time, end_time, rq_file_dir, rq_file_name, np_random_seed, rq_type=None,
                          rq_type_distr={}, rq_od_zone_distr={}, simulation_time_step=1):
-        np.random.seed(int(1712 * np_random_seed))
+        np.random.seed(np_random_seed)
         # classification of requests
         rq_node_type_distr = {}
         if rq_type:
