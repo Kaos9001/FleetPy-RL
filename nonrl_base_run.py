@@ -190,7 +190,7 @@ def check_assertions(list_eval_df, all_scenario_assertion_dict):
 
 if __name__ == "__main__":
     # Gaussian hotspots in a gridworld
-    scs_path = os.path.join(os.path.dirname(__file__), "studies", "grid_study", "scenarios")
+    scs_path = os.path.join(os.path.dirname(__file__), "studies", "example_rl_grid_study", "scenarios")
     log_level = "info"
     cc = os.path.join(scs_path, "non_rl_constant_config.csv")
     sc = os.path.join(scs_path, "non_rl_scenario_config.csv")

@@ -68,6 +68,7 @@ def check_assertions(list_eval_df, all_scenario_assertion_dict):
 # Main execution
 if __name__ == "__main__":
     RL_config = {
+        "scenario_name": "example_rl_grid_study",
         "use_case": "devresult",
         "start_config_i": 0,
         "cc_file": "gaussian_rl_constant_config.csv",

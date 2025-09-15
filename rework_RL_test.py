@@ -7,6 +7,7 @@ from GymEnvBase import FleetPyEnv
 # Main execution
 if __name__ == "__main__":
     RL_config = {
+        "scenario_name": "example_rl_grid_study",
         "use_case": "devresult",
         "start_config_i": 0,
         "cc_file": "large_constant_config_pool.csv",

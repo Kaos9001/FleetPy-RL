@@ -40,6 +40,7 @@ class CNNHead(BaseFeaturesExtractor):
 if __name__ == "__main__":
     print("start")
     RL_config = {
+        "scenario_name": "example_rl_grid_study",
         "use_case": "train",
         "start_config_i": 0,
         "cc_file": "gaussian_rl_constant_config.csv",

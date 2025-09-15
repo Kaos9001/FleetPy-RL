@@ -37,7 +37,7 @@ class FleetPyEnv(gym.Env):
         self.use_case: str = use_case
 
         # Setup scenario from config files
-        scs_path = os.path.join(os.path.dirname(__file__), "studies", "grid_study", "scenarios")
+        scs_path = os.path.join(os.path.dirname(__file__), "studies", rl_config["scenario_name"], "scenarios")
         cc = os.path.join(scs_path, cc_file)
         sc = os.path.join(scs_path, sc_file)
         if use_case == "train" or use_case == "baseline" or use_case == "zbaseline" or use_case.endswith("result"):
