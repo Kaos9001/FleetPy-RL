@@ -32,7 +32,7 @@ class CNNHead(BaseFeaturesExtractor):
             n_flatten = self.cnn(
                 th.as_tensor(observation_space.sample()[None]).float()
             ).shape[1]
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.Tanh())
         
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.linear(self.cnn(observations))
@@ -47,20 +47,20 @@ if __name__ == "__main__":
         "demand_generator": make_gaussian_demand_generator(n_hotspots=10)
     }
 
-    num_cpu = 3  # Number of processes to use
+    num_cpu = 5  # Number of processes to use
     env = make_vec_env(FleetPyEnv, n_envs=num_cpu, env_kwargs={"rl_config": RL_config, "seed": -1}, vec_env_cls=SubprocVecEnv)
     #check_env(env)
     print("env created")
 
     policy_kwargs = dict(
         features_extractor_class=CNNHead,
-        features_extractor_kwargs=dict(features_dim=64),
+        features_extractor_kwargs=dict(features_dim=128),
         normalize_images=False,
     )
 
-    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./results/gaussian_tensorboard/", policy_kwargs=policy_kwargs, learning_rate=1e-3)
+    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./results/gaussian_tensorboard/", policy_kwargs=policy_kwargs, learning_rate=5e-4)
     print("model created")
-    model.learn(total_timesteps=500_000, progress_bar=True, tb_log_name="first_run")
+    model.learn(total_timesteps=500_000, progress_bar=True, tb_log_name="ppo")
     print("model learned")
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10)
     #vec_env = model.get_env()
