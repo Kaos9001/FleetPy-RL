@@ -15,7 +15,7 @@ replay_flag,True
 nr_mod_operators,1
 rq_type,BasicRequest
 user_max_decision_time,60
-infra_structure_name,rl_test_infra
+infra_structure_name,rl_grid
 log_level,info
 skip_file_writing,0
 ##2,FleetControl

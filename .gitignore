@@ -46,6 +46,8 @@ studies/manhattan_case_study/results/*
 studies/chicago_case_study/results/*
 !studies/munich_case_study
 studies/munich_case_study/results/*
+!studies/example_rl_grid_study
+studies/example_rl_grid_study/results/*
 
 # system dependent C++ Router files
 src/routing/cpp_router/*.pyd
