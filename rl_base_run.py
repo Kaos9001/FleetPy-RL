@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     env.close(eval_result=True)
 
-    scs_path = os.path.join(os.path.dirname(__file__), "studies", "grid_study", "scenarios")
+    scs_path = os.path.join(os.path.dirname(__file__), "studies", "example_rl_grid_study", "scenarios")
     cc = os.path.join(scs_path, RL_config["cc_file"])
     sc = os.path.join(scs_path, RL_config["sc_file"])
     list_results = read_outputs_for_comparison(cc, sc)
