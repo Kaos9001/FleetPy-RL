@@ -209,17 +209,8 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
                     self._activate_and_route_vehicle(vid=vid_to_activate, simulation_time=simulation_time,
                                                      rl_action=rl_action)
 
-        for vid in self.vehs_in_hub:
-            if self.vehs_in_hub[vid] < 0 and simulation_time + self.vehs_in_hub[vid] > self.round_trip_max_duration:
-                print(f"[{simulation_time}] Vehicle {vid} overtime: departed at {-self.vehs_in_hub[vid]}")
-                for vrl in self.sim_vehicles[vid].assigned_route:
-                    print(f"\t{vrl}")
-                print(self.veh_plans[vid])
-                print("------------------------------------------")
-                breakpoint()
-
     def setup_spaces(self):
-        max_requests = 255
+        max_requests = 4096
         grid_shape = (self.grid_side_length, self.grid_side_length)
 
         self.observation_space = gym.spaces.Box(low=0, high=max_requests, shape=(4, self.grid_side_length, self.grid_side_length))
