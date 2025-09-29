@@ -309,8 +309,6 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         #if self.rejection_counter + self.served_counter > 0:
         #    reward += self.served_counter / (self.served_counter + self.rejection_counter)
 
-        self.log["served"] += self.served_counter
-        self.log["reject"] += self.rejection_counter
         self.served_counter = 0
         self.rejection_counter = 0
         
