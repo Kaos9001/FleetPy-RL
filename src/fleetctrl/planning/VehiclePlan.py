@@ -219,7 +219,7 @@ class PlanStop(PlanStopBase):
     def __init__(self, position, boarding_dict={}, max_trip_time_dict={}, latest_arrival_time_dict={}, earliest_pickup_time_dict={}, latest_pickup_time_dict={},
                  change_nr_pax=0, change_nr_parcels=0, earliest_start_time=None, latest_start_time=None, duration=None, earliest_end_time=None,
                  locked=False, locked_end=False, charging_power=0, planstop_state : G_PLANSTOP_STATES=G_PLANSTOP_STATES.MIXED,
-                 charging_task_id: Tuple[int, str] = None, status: Optional[VRL_STATES] = None, fixed_stop: bool = False):
+                 charging_task_id: Tuple[int, str] = None, status: Optional[VRL_STATES] = None, fixed_stop: bool = False, rl_stop: bool = False):
         """
         :param position: network position (3 tuple) of the position this PlanStops takes place (target for routing)
         :param boarding_dict: dictionary with entries +1 -> list of request ids that board the vehicle there; -1 -> list of requests that alight the vehicle there
@@ -294,6 +294,8 @@ class PlanStop(PlanStopBase):
 
         self.charging_task_id: Tuple[int, str] = charging_task_id
 
+        self.rl_stop = rl_stop
+
     def get_pos(self) -> tuple:
         """returns network position of this plan stop
         :return: network position tuple """
@@ -326,7 +328,7 @@ class PlanStop(PlanStopBase):
                          latest_pickup_time_dict=self.latest_pickup_time_dict.copy(), change_nr_pax=self.change_nr_pax, change_nr_parcels=self.change_nr_parcels,
                          earliest_start_time=self.direct_earliest_start_time, latest_start_time=self.direct_latest_start_time,
                          duration=self.direct_duration, earliest_end_time=self.direct_earliest_end_time, locked=self.locked, locked_end=self.locked_end,
-                         charging_power=self.charging_power, charging_task_id=self.charging_task_id, planstop_state=self.state, fixed_stop=self.fixed_stop)
+                         charging_power=self.charging_power, charging_task_id=self.charging_task_id, planstop_state=self.state, fixed_stop=self.fixed_stop, rl_stop=self.rl_stop)
         cp_ps._planned_arrival_time = self._planned_arrival_time
         cp_ps._planned_departure_time = self._planned_departure_time
         cp_ps._planned_arrival_soc = self._planned_arrival_soc
@@ -478,6 +480,12 @@ class PlanStop(PlanStopBase):
         """
         return self.fixed_stop
 
+    def is_rl_stop(self) -> bool:
+        """
+        return whether this is an rl-assigned stop that shouldnt be removed from the plan
+        """
+        return self.rl_stop
+
 class BoardingPlanStop(PlanStop):
     """ this class can be used to generate a plan stop where only boarding processes take place """
     def __init__(self, position, boarding_dict={}, max_trip_time_dict={}, latest_arrival_time_dict={},
@@ -502,7 +510,7 @@ class BoardingPlanStop(PlanStop):
                          earliest_start_time=earliest_start_time, latest_start_time=latest_start_time,
                          duration=duration, earliest_end_time=earliest_end_time, locked=locked,
                          charging_power=0, planstop_state=G_PLANSTOP_STATES.BOARDING, fixed_stop=fixed_stop)
-        
+
 class RoutingTargetPlanStop(PlanStop):
     """ this plan stop can be used to schedule a routing target for vehicles with the only task to drive there
         i.e repositioning"""
@@ -541,6 +549,24 @@ class ChargingPlanStop(PlanStop):
                          earliest_start_time=earliest_start_time, latest_start_time=latest_start_time, duration=duration, 
                          earliest_end_time=earliest_end_time, locked=locked, locked_end=locked_end, charging_power=charging_power, 
                          planstop_state=G_PLANSTOP_STATES.CHARGING, charging_task_id=charging_task_id, status=status)
+
+class RLTargetPlanStop(PlanStop):
+    """ this plan stop can be used to schedule a routing target for vehicles with the only task to drive there
+        i.e repositioning"""
+    def __init__(self, position, earliest_start_time=None, latest_start_time=None, duration=None, earliest_end_time=None, locked=False, locked_end=False, planstop_state=G_PLANSTOP_STATES.REPO_TARGET):
+        """
+        :param position: network position (3 tuple) of the position this PlanStops takes place (target for routing)
+        :param earliest_start_time: (float) absolute earliest start time this plan stop is allowed to start
+        :param latest_start_time: (float) absolute latest start time this plan stop is allowed to start
+        :param duration: (float) minimum duration this plan stops takes at this location
+        :param earliest_end_time: (float) absolute earliest time a vehicle is allowed to leave at this plan stop
+        :param locked: (bool) false by default; if true this planstop can no longer be unassigned from vehicleplan and has to be fullfilled. currently only working when also all planstops before this planstop are locked, too
+        :param locked_end: (bool) false by default; if true, no planstops can be added after this planstop in the assignment algorithm and it cannot be removed by the assignemnt algorithm (insertions before are possible!)
+        :param planstop_state: (G_PLANSTOP_STATES) indicates the planstop state. should be in (REPO_TARGET, INACTIVE, RESERVATION)
+        """
+        super().__init__(position, boarding_dict={}, max_trip_time_dict={}, latest_arrival_time_dict={}, earliest_pickup_time_dict={}, latest_pickup_time_dict={},
+                         change_nr_pax=0, earliest_start_time=earliest_start_time, latest_start_time=latest_start_time, duration=duration,
+                         earliest_end_time=earliest_end_time, locked=locked, locked_end=locked_end, charging_power=0, planstop_state=planstop_state, rl_stop=True)
 
 class VehiclePlan:
     """ this class is used to plan tasks for a vehicle and evaluates feasiblity of time constraints of this plan
@@ -1004,7 +1030,7 @@ class VehiclePlan:
         tmp = []
         rm = False
         for ps in new_plan.list_plan_stops:
-            if not ps.is_empty() or ps.is_locked() or ps.is_locked_end():
+            if not ps.is_empty() or ps.is_locked() or ps.is_locked_end() or ps.is_rl_stop():
                 tmp.append(ps)
             else:
                 rm = True

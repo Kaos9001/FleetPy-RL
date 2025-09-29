@@ -19,7 +19,7 @@ import geopandas as gpd
 # src imports
 # -----------
 from src.simulation.Offers import TravellerOffer
-from src.fleetctrl.planning.VehiclePlan import VehiclePlan, PlanStop, RoutingTargetPlanStop
+from src.fleetctrl.planning.VehiclePlan import VehiclePlan, PlanStop, RoutingTargetPlanStop, BoardingPlanStop, RLTargetPlanStop
 from src.fleetctrl.planning.PlanRequest import PlanRequest
 from src.simulation.Legs import VehicleRouteLeg
 
@@ -38,6 +38,8 @@ from src.simulation.StationaryProcess import ChargingProcess
 # functions
 # ---------
 from src.misc.globals import *
+
+DEBUG_LOG = False
 
 
 import gymnasium as gym
@@ -95,6 +97,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         self.max_time_to_midpoint = operator_attributes.get(G_OP_HUB_MID_DUR, LARGE_INT)
         self.round_trip_max_duration = operator_attributes.get(G_OP_HUB_RT_DUR, LARGE_INT)
+        self.idle_wait_time = 300
 
         # dict of vehicles in hub (vid -> -timestamp of departure if not in hub (active), else vid -> timestamp of arrival in hub)
         self.vehs_in_hub = {}
@@ -109,11 +112,13 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             node_pos = self.routing_engine.return_node_position(node_index)
             self.target_directions_dict[action_id] = node_pos
 
-        self.wrong_action_penalty = 1/3
-        self.rw_rejection_penalty = 10
-        self.rw_drive_distance_penalty = 1/10000
-        self.rw_waiting_time_penalty = 1/600
-
+        self.wrong_action_penalty = 0 # 1/3
+        self.rw_rejection_penalty = 0.1 #1/7000 #0.05 # 0.1 # 1
+        self.rw_drive_distance_penalty = 0 #1/100000
+        self.rw_waiting_time_penalty = 0 #1/6000
+        self.rw_served_bonus = 0.1 #1/7000
+        self.action_cost = 0.1
+        
         # grid specific
         self.n_nodes = self.routing_engine.get_number_network_nodes()
         self.grid_side_length = int(np.sqrt(self.n_nodes))
@@ -121,6 +126,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         self.reward = 0
 
         self.rejection_counter = 0
+        self.served_counter = 0
         self.driven_distance_dict = {}
 
         # use moving average here?
@@ -145,6 +151,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             self.veh_plans[veh_obj.vid].add_plan_stop(plan_stop, veh_obj, self.sim_start_time, self.routing_engine)
             veh_obj.assigned_route.append(VehicleRouteLeg(VRL_STATES.OUT_OF_SERVICE, veh_obj.pos, {},duration=self.sim_end_time, locked=True))
             veh_obj.start_next_leg_first = True
+            #veh_obj.start_next_leg(self.sim_start_time)
 
             self.driven_distance_dict[vid] = veh_obj.cumulative_distance
 
@@ -154,7 +161,6 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         self.vehs_in_hub[vid] = -simulation_time
         _, inactive_vrl = veh_to_activate.end_current_leg(simulation_time)
         self.receive_status_update(veh_to_activate.vid, simulation_time, [inactive_vrl])
-
         #assert self.round_trip_max_duration > self.max_time_to_midpoint
 
         if type(rl_action) is np.ndarray:
@@ -163,31 +169,20 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         # Set plan to go to midpoint and back
         veh_plan = self.veh_plans[veh_to_activate.vid]
         direction_pos = self.target_directions_dict[rl_action]
-        rl_action_stop = RoutingTargetPlanStop(direction_pos, earliest_start_time=simulation_time,
+        wait_stop = RLTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time,
+                                     latest_start_time=simulation_time, duration=self.idle_wait_time)
+        veh_plan.add_plan_stop(wait_stop, veh_to_activate, simulation_time, self.routing_engine)
+        rl_action_stop = RLTargetPlanStop(direction_pos, earliest_start_time=simulation_time,
                                      latest_start_time=simulation_time + self.max_time_to_midpoint)
         veh_plan.add_plan_stop(rl_action_stop, veh_to_activate, simulation_time, self.routing_engine)
-        return_to_hub_stop = RoutingTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time,
-                                              latest_start_time=simulation_time + self.round_trip_max_duration)
-        veh_plan.add_plan_stop(return_to_hub_stop, veh_to_activate, simulation_time, self.routing_engine)
-        deactivate_stop = RoutingTargetPlanStop(self.hub_pos, locked_end=True, duration=self.sim_end_time,
+        #return_to_hub_stop = RLTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time,
+        #                                      latest_start_time=simulation_time + self.round_trip_max_duration)
+        #veh_plan.add_plan_stop(return_to_hub_stop, veh_to_activate, simulation_time, self.routing_engine)
+        deactivate_stop = RLTargetPlanStop(self.hub_pos, locked_end=True, duration=self.sim_end_time,
                                                 planstop_state=G_PLANSTOP_STATES.INACTIVE, latest_start_time=simulation_time + self.round_trip_max_duration)
         veh_plan.add_plan_stop(deactivate_stop, veh_to_activate, simulation_time, self.routing_engine)
 
-        # Hardcoding replacement for assign_vehicle_plan
-        veh_plan.update_tt_and_check_plan(veh_to_activate, simulation_time, self.routing_engine, keep_feasible=True)
-
-        new_list_vrls = [
-            VehicleRouteLeg(VRL_STATES.ROUTE, direction_pos, {}),
-            VehicleRouteLeg(VRL_STATES.REPO_TARGET, direction_pos, {}, duration=0), # locked=True,
-            VehicleRouteLeg(VRL_STATES.ROUTE, self.hub_pos, {}),
-            VehicleRouteLeg(VRL_STATES.OUT_OF_SERVICE, self.hub_pos, {}, duration=self.sim_end_time)
-        ]
-        veh_to_activate.assign_vehicle_plan(new_list_vrls, simulation_time, force_ignore_lock=True)
-        self.veh_plans[veh_to_activate.vid] = veh_plan
-        self.RPBO_Module.set_assignment(veh_to_activate.vid, veh_plan)
-        veh_to_activate.start_next_leg(simulation_time)
-        # ----------------------------------------------
-        # self.assign_vehicle_plan(veh_to_activate, veh_plan, simulation_time, add_arg=True)
+        self.assign_vehicle_plan(veh_to_activate, veh_plan, simulation_time, add_arg=True)
 
     def receive_status_update(self, vid : int, simulation_time : int, list_finished_VRL : List[VehicleRouteLeg], force_update : bool=True):
         if self.vehs_in_hub[vid] < 0 and len(self.sim_vehicles[vid].assigned_route) == 1:
@@ -196,14 +191,18 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         super().receive_status_update(vid, simulation_time, list_finished_VRL, force_update=force_update)
 
     def _call_time_trigger_rl_step(self, simulation_time : int, rl_action=None):
+        if DEBUG_LOG:
+            for vid, veh in enumerate(self.sim_vehicles):
+                print(f"{simulation_time} | {vid}: {list(map(int, self.routing_engine.return_position_coordinates(veh.pos)))} -> {veh.status}")
         if simulation_time % self.rl_action_time_step == 0:
             self.reward = 0
-            self.rejection_counter = 0
             if rl_action:
-                if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0]) == 0:
-                    if rl_action != 0:
+                if rl_action != 0:
+                    self.reward -= self.action_cost
+                    if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0]) == 0:
                         self.reward -= self.wrong_action_penalty
-                elif rl_action > 0:
+                    if DEBUG_LOG:
+                        print(f"{simulation_time} | Action {rl_action} routing vehicle to {self.routing_engine.return_position_coordinates(self.target_directions_dict[rl_action])}")
                     vid_to_activate = min((vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0),
                                           key=lambda vid: self.vehs_in_hub[vid])
                     self._activate_and_route_vehicle(vid=vid_to_activate, simulation_time=simulation_time,
@@ -236,6 +235,8 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         veh_traj_grid = np.zeros((self.n_nodes, ))
         for vid, veh_obj in enumerate(self.sim_vehicles):
             c_pos = veh_obj.pos
+            veh_pos_grid[c_pos[0]] += 1
+            
             for i, assigned_VRL in enumerate(veh_obj.assigned_route):
                 route = self.routing_engine.return_best_route_1to1(c_pos, assigned_VRL.destination_pos)
                 for node in route:
@@ -247,6 +248,8 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         for rid in self.rq_dict:
             req = self.rq_dict[rid]
+            if rid in self.rid_to_assigned_vid:
+                continue
             if req.d_pos == self.hub_pos:
                 req_inb_grid[req.o_pos[0]] += req.nr_pax
             else:
@@ -257,11 +260,13 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         #    print(req_inb_grid.reshape((25, 25)).astype(int))
 
         state = np.stack((
-            veh_pos_grid,
-            req_inb_grid,
-            req_outb_grid,
-            veh_traj_grid
-        ), axis=-1).reshape((4, self.grid_side_length, self.grid_side_length)).astype(np.float32)
+            veh_pos_grid.reshape((self.grid_side_length, self.grid_side_length)),
+            req_inb_grid.reshape((self.grid_side_length, self.grid_side_length)),
+            req_outb_grid.reshape((self.grid_side_length, self.grid_side_length)),
+            veh_traj_grid.reshape((self.grid_side_length, self.grid_side_length))
+        ), axis=0).astype(np.float32)
+        #if len(self.rq_dict.keys()) > 0:
+        #    breakpoint()
         state = np.log(state + 1)
         #print(state.max())
         return state
@@ -269,10 +274,25 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
     def _create_rejection(self, prq: PlanRequest, simulation_time: int):
         super()._create_rejection(prq, simulation_time)
         self.rejection_counter += 1
+        if DEBUG_LOG:
+            print(f"{simulation_time} | Rejected {prq.rid} at {self.routing_engine.return_position_coordinates(prq.o_pos)} (wanted to go to {self.routing_engine.return_position_coordinates(prq.d_pos)})")
+
+    def user_confirms_booking(self, rid : Any, simulation_time : int):
+        super().user_confirms_booking(rid, simulation_time)
+        if DEBUG_LOG:
+            print(f"{simulation_time} | Got a booking! rid {rid} at {self.routing_engine.return_position_coordinates(self.rq_dict[rid].o_pos)} to {self.routing_engine.return_position_coordinates(self.rq_dict[rid].d_pos)}")
 
     def acknowledge_boarding(self, rid: Any, vid: int, simulation_time: int):
         super().acknowledge_boarding(rid, vid, simulation_time)
+        self.served_counter += 1
+        if DEBUG_LOG:
+            print(f"{int(simulation_time)} | Passenger of {rid} (dest {self.routing_engine.return_position_coordinates(self.rq_dict[rid].d_pos)}) boarded at pos {self.routing_engine.return_position_coordinates(self.rq_dict[rid].o_pos)} (car is at {self.routing_engine.return_position_coordinates(self.sim_vehicles[vid].pos)})")
         self.waiting_times.append(simulation_time - self.rq_dict[rid].get_rq_time())
+
+    def acknowledge_alighting(self, rid: Any, vid: int, simulation_time: int):
+        super().acknowledge_alighting(rid, vid, simulation_time)
+        if DEBUG_LOG:
+            print(f"{int(simulation_time)} | Passenger of {rid} dropped off at {self.routing_engine.return_position_coordinates(self.sim_vehicles[vid].pos)}")
 
     def get_reward(self):
         '''
@@ -281,8 +301,19 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         𝑊𝑎𝑣𝑔 is the average time requests have had to wait before pickup
         '''
         reward = self.reward
+        #print(f"Base reward was {reward}")
         reward -= self.rejection_counter * self.rw_rejection_penalty
+        #print(f"Rejection count was {self.rejection_counter} (new reward {reward})")
+        reward += self.served_counter * self.rw_served_bonus
+        #print(f"Served count was {self.served_counter} (new reward {reward})")
+        #if self.rejection_counter + self.served_counter > 0:
+        #    reward += self.served_counter / (self.served_counter + self.rejection_counter)
 
+        self.log["served"] += self.served_counter
+        self.log["reject"] += self.rejection_counter
+        self.served_counter = 0
+        self.rejection_counter = 0
+        
         total_driven_delta = 0
         for vid, veh_obj in enumerate(self.sim_vehicles):
             total_driven_delta += veh_obj.cumulative_distance - self.driven_distance_dict[vid]
@@ -293,11 +324,23 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         reward -= avg_wait * self.rw_waiting_time_penalty
 
         #print(f"Reward is {reward}")
+        #print(f"Served counter is {self.served_counter}")
         #print(f"Total driven delta is {total_driven_delta}")
         #print(f"There were {self.rejection_counter} requests rejected in the last time step")
         #print(f"Average waiting time is {avg_wait}s")
         #print("------------")
 
         return reward
+
+    def _create_user_offer(self, prq : PlanRequest, simulation_time : int, assigned_vehicle_plan : VehiclePlan=None,
+                           offer_dict_without_plan : dict={}):
+        super()._create_user_offer(prq, simulation_time, assigned_vehicle_plan,
+                           offer_dict_without_plan)
+
+    def user_request(self, rq, sim_time):
+        if DEBUG_LOG:
+            print(f"{int(sim_time)} | Got request {rq.rid} at {rq.rq_time}: from {self.routing_engine.return_position_coordinates(rq.o_pos)} to {self.routing_engine.return_position_coordinates(rq.d_pos)} (will leave system at {rq.leave_system_time})")
+        return super().user_request(rq, sim_time)
+        
 
 
