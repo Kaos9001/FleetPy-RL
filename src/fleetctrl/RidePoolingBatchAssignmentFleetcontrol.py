@@ -136,7 +136,7 @@ class RidePoolingBatchAssignmentFleetcontrol(RidePoolingBatchOptimizationFleetCo
                 if assigned_vid is None:
                     if self.max_wait_time_2 is not None and self.max_wait_time_2 > 0:    # retry with new waiting time constraint (no offer returned)
                         new_unassigned_requests_2[rid] = 1
-                        self.RPBO_Module.delRequest(rid)
+                        self.RPBO_Module.delete_request(rid)
                         _, earliest_pu, _ = prq.get_o_stop_info()
                         new_latest_pu = earliest_pu + self.max_wait_time_2
                         self.change_prq_time_constraints(simulation_time, rid, new_latest_pu)
