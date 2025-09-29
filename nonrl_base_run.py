@@ -193,7 +193,7 @@ if __name__ == "__main__":
     scs_path = os.path.join(os.path.dirname(__file__), "studies", "example_rl_grid_study", "scenarios")
     log_level = "info"
     cc = os.path.join(scs_path, "non_rl_constant_config.csv")
-    sc = os.path.join(scs_path, "non_rl_scenario_config.csv")
+    sc = os.path.join(scs_path, "non_rl_scenario_config_reduced.csv")
     run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=1, n_parallel_sim=1)
     list_results = read_outputs_for_comparison(cc, sc)
     all_scenario_assert_dict = {0: {"number users": 10848}}

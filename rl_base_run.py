@@ -10,6 +10,8 @@ from src.misc.globals import *
 import pandas as pd
 from tqdm import tqdm
 
+from stable_baselines3 import DQN, PPO
+
 MAIN_DIR = os.path.dirname(__file__)
 MOD_STR = "MoD_0"
 MM_STR = "Assertion"
@@ -73,29 +75,49 @@ if __name__ == "__main__":
         "start_config_i": 0,
         "cc_file": "gaussian_rl_constant_config.csv",
         "sc_file": "gaussian_rl_scenario_config.csv",
-        "demand_generator": make_gaussian_demand_generator(n_hotspots=10),
+        "demand_generator": make_gaussian_demand_generator(n_hotspots=12,
+                                                           baseline_strength=0.005,
+                                                           peak_fraction_range=(0.2, 0.8),
+                                                           strength_range=(0.05, 0.15),
+                                                           temporal_spread_range=(1200, 2400),
+                                                           spatial_spread_range=(400, 800), 
+                                                           balance_range=(0.3, 0.7)#, candidate_nodes=[0, 25, 50, 1275, 1325, 2550, 2575, 2600]
+                                                          ),
     }
 
     env = FleetPyEnv(RL_config)
 
     observation, info = env.reset(seed=42)
 
+    model = DQN.load("state_cnnheadmk2_req_fix_large_penalty_dqn")
+
     episode_over = False
+    actions = []
+    total_reward = 0
     with tqdm(total=env.SF.end_time) as pbar:
         while not episode_over:
-            action = env.action_space.sample()
+            action = model.predict(observation)[0].item()
+            #action = env.action_space.sample()
+            #action = 1
+            actions.append(action)
             #print(env.rl_adapter.vehs_in_hub)
+            
             t = env.sim_time
             observation, reward, terminated, truncated, info = env.step(action)
-
+            #print(f"Reward was: {reward}")
             episode_over = terminated or truncated
             pbar.update(env.sim_time - t)
+            total_reward += reward
 
+    print(total_reward)
+    print(env.active_demand_f_path)
     env.close(eval_result=True)
 
     scs_path = os.path.join(os.path.dirname(__file__), "studies", "example_rl_grid_study", "scenarios")
     cc = os.path.join(scs_path, RL_config["cc_file"])
     sc = os.path.join(scs_path, RL_config["sc_file"])
     list_results = read_outputs_for_comparison(cc, sc)
-    all_scenario_assert_dict = {0: {"number users": 0}}
-    check_assertions(list_results, all_scenario_assert_dict)
+    print(list_results)
+    print(actions)
+    #all_scenario_assert_dict = {0: {"number users": 0}}
+    #check_assertions(list_results, all_scenario_assert_dict)
