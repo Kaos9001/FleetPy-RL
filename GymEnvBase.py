@@ -112,14 +112,15 @@ class FleetPyEnv(gym.Env):
         for i in range(n_steps - 1):
             self.SF.step(self.sim_time)
             self.sim_time += self.SF.time_step
+        assert self.sim_time % self.rl_adapter.rl_action_time_step == 0
         observation, reward, done, truncated, info = self.SF.step(self.sim_time, rl_action=action)
         self.sim_time += self.SF.time_step
 
 
         # skip first 60 minute reward (initialization)
-        if self.sim_time <= self.SF.start_time + 60 * 60:
-            reward = 0
-
+        #if self.sim_time <= self.SF.start_time + 60 * 60:
+        #    reward = 0
+            
         return observation, reward, done, truncated, info
 
     def reset(self, seed=None, options=None, eval_result=False):
@@ -162,12 +163,14 @@ class FleetPyEnv(gym.Env):
         self.SF.run(rl_init=True)
         self.sim_time = self.SF.start_time
 
-        n_steps = self.scenario_cfgs[self.current_config_i][G_RL_TIME_STEP] // self.SF.time_step
-        for i in range(n_steps-1):
-            observation, reward, done, truncated, info  = self.SF.step(self.sim_time, rl_action=0)  # do nothing at first timesteps
-            self.sim_time += self.SF.time_step
+        #n_steps = self.scenario_cfgs[self.current_config_i][G_RL_TIME_STEP] // self.SF.time_step
+        #for i in range(n_steps):
+        #    observation, reward, done, truncated, info  = self.SF.step(self.sim_time, rl_action=0)  # do nothing at first timesteps
+        #    self.sim_time += self.SF.time_step
 
-        # self.sim_time += self.SF.time_step
+        observation, reward, done, truncated, info = self.SF.step(self.sim_time, rl_action=0)
+        self.sim_time += self.SF.time_step
+
 
         return observation, info  # Return the initial observation
 
