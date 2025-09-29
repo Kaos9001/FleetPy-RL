@@ -51,7 +51,14 @@ def make_basic_demand_generator(n_trips):
         return out_file_name, out_file_path
     return generate_temp_demand
 
-def make_gaussian_demand_generator(n_hotspots=5):
+def make_gaussian_demand_generator(n_hotspots=5,
+                                   baseline_strength=0.05,
+                                   peak_fraction_range=(0.2, 0.8),
+                                   strength_range=(0.05, 0.15),
+                                   temporal_spread_range=(1200, 3600),
+                                   spatial_spread_range=(100, 400), 
+                                   balance_range=(0.0, 1.0),
+                                   candidate_nodes=None):
     def generate_hotspot_poisson_demand(simulation_params):
         nw_path = Path("data") / "networks" / simulation_params[G_NETWORK_NAME]
         base_path = nw_path / "base"
@@ -68,8 +75,9 @@ def make_gaussian_demand_generator(n_hotspots=5):
         end_time = simulation_params[G_SIM_END_TIME]
 
         delta = end_time - start_time
-
-        candidate_nodes = [idx for idx in nodes.index if idx != hub]
+        nonlocal candidate_nodes
+        if candidate_nodes is None:
+            candidate_nodes = [idx for idx in nodes.index if idx != hub]
 
         # --- Node coordinates for distance calculation ---
         coords = np.vstack([nodes.geometry.x, nodes.geometry.y]).T
@@ -78,11 +86,14 @@ def make_gaussian_demand_generator(n_hotspots=5):
         hotspots = []
         for _ in range(n_hotspots):
             center_node = np.random.choice(candidate_nodes)
-            peak_time = np.random.randint(start_time + delta * 0.2, start_time + delta * 0.8)
-            strength = np.random.uniform(0.05, 0.15)      # intensity scaling
-            temporal_spread = np.random.randint(1200, 3600) # 20–60 min std dev
-            spatial_spread = np.random.randint(100, 400)    # 100–400 meters
-            outbound_inbound_balance = np.random.uniform(0, 1) # tendency of trips to be inbound or outbound
+            peak_time = np.random.randint(
+                start_time + delta * peak_fraction_range[0],
+                start_time + delta * peak_fraction_range[1]
+            )
+            strength = np.random.uniform(*strength_range)
+            temporal_spread = np.random.randint(*temporal_spread_range)
+            spatial_spread = np.random.randint(*spatial_spread_range)
+            outbound_inbound_balance = np.random.uniform(*balance_range)
 
             # Precompute spatial weights
             center_xy = coords[center_node]
@@ -133,21 +144,21 @@ def make_gaussian_demand_generator(n_hotspots=5):
                 })
 
         # --- Background trips (baseline) ---
-        baseline_strength = 0.05 # average of 1 random trip per 20 seconds
-        t = start_time
-        while t < end_time:
-            t += np.random.exponential(1 / baseline_strength)
-            if t >= end_time:
-                break
-            if np.random.rand() < 0.5:
-                start_node, end_node = hub, np.random.choice(candidate_nodes)
-            else:
-                start_node, end_node = np.random.choice(candidate_nodes), hub
-            generated_trips.append({
-                "start": start_node,
-                "end": end_node,
-                "rq_time": int(t),
-            })
+        if baseline_strength > 0:
+            t = start_time
+            while t < end_time:
+                t += np.random.exponential(1 / baseline_strength)
+                if t >= end_time:
+                    break
+                if np.random.rand() < 0.5:
+                    start_node, end_node = hub, np.random.choice(candidate_nodes)
+                else:
+                    start_node, end_node = np.random.choice(candidate_nodes), hub
+                generated_trips.append({
+                    "start": start_node,
+                    "end": end_node,
+                    "rq_time": int(t),
+                })
 
         # --- Save trips ---
         trips = pd.DataFrame(generated_trips).sort_values(by="rq_time").reset_index(drop=True)
