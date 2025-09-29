@@ -14,15 +14,15 @@ route_output_flag,True
 replay_flag,True
 nr_mod_operators,1
 rq_type,BasicRequest
-user_max_decision_time,60
+user_max_decision_time,900
 infra_structure_name,rl_grid
 log_level,info
 skip_file_writing,0
 ##2,FleetControl
 op_min_wait_time,0
 op_max_wait_time,900
-op_max_wait_time_2,
-op_max_detour_time_factor,40
+op_max_wait_time_2,900
+op_max_detour_time_factor,100
 op_offer_time_window,
 op_add_constant_detour_time,
 op_max_constant_detour_time,
@@ -38,8 +38,8 @@ op_reoptimisation_timestep,60
 op_rl_action_timestep,60
 op_rp_batch_optimizer,InsertionHeuristic
 op_init_veh_distribution,init_veh_dist.csv
-op_hub_roundtrip_max_duration,1800
-op_hub_max_time_to_midpoint,900
+op_hub_roundtrip_max_duration,2400
+op_hub_max_time_to_midpoint,2400
 ##3,TravelerModel
 ##4,PublicTransport
 ##5,DynamicNetwork and PT Crowding

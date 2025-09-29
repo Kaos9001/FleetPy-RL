@@ -1,0 +1,2 @@
+op_module,scenario_name,op_fleet_composition,op_rp_batch_optimizer,op_init_veh_distribution,rq_file,end_time,op_reoptimisation_timestep
+RidePoolingBatchAssignmentFleetcontrol,gaussian_non_rl_gridworld,microvan_vehtype:1,InsertionHeuristic,init_veh_dist.csv,hotspot-separate-88-150-to-14400-42.csv,14400,300
