@@ -201,12 +201,13 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
                     self.reward -= self.action_cost
                     if len([vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0]) == 0:
                         self.reward -= self.wrong_action_penalty
-                    if DEBUG_LOG:
-                        print(f"{simulation_time} | Action {rl_action} routing vehicle to {self.routing_engine.return_position_coordinates(self.target_directions_dict[rl_action])}")
-                    vid_to_activate = min((vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0),
-                                          key=lambda vid: self.vehs_in_hub[vid])
-                    self._activate_and_route_vehicle(vid=vid_to_activate, simulation_time=simulation_time,
-                                                     rl_action=rl_action)
+                    else:
+                        if DEBUG_LOG:
+                            print(f"{simulation_time} | Action {rl_action} routing vehicle to {self.routing_engine.return_position_coordinates(self.target_directions_dict[rl_action])}")
+                        vid_to_activate = min((vid for vid in self.vehs_in_hub if self.vehs_in_hub[vid] >= 0),
+                                              key=lambda vid: self.vehs_in_hub[vid])
+                        self._activate_and_route_vehicle(vid=vid_to_activate, simulation_time=simulation_time,
+                                                         rl_action=rl_action)
 
     def setup_spaces(self):
         max_requests = 4096
