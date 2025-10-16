@@ -62,6 +62,16 @@ def make_gaussian_demand_generator(n_hotspots=5,
     def generate_hotspot_poisson_demand(simulation_params):
         nw_path = Path("data") / "networks" / simulation_params[G_NETWORK_NAME]
         base_path = nw_path / "base"
+
+        start_time = simulation_params[G_SIM_START_TIME] + 150
+        end_time = simulation_params[G_SIM_END_TIME]
+
+        out_file_name = f"hotspot-separate-{start_time}-to-{end_time}-{simulation_params[G_RANDOM_SEED]}.csv"
+        out_file_path = Path("data") / "demand" / simulation_params[G_DEMAND_NAME] / "matched" / simulation_params[G_NETWORK_NAME] / out_file_name
+        
+        if out_file_path.exists():
+            return out_file_name, out_file_path
+        
         nodes = gpd.read_file(base_path / "nodes_all_infos.geojson")
 
         infra_path = Path("data") / "infra" / simulation_params[G_INFRA_NAME] / simulation_params[G_NETWORK_NAME]
@@ -70,9 +80,6 @@ def make_gaussian_demand_generator(n_hotspots=5,
         hub = hubs.iloc[0]["node_index"].item()
 
         np.random.seed(simulation_params[G_RANDOM_SEED])
-
-        start_time = simulation_params[G_SIM_START_TIME] + 150
-        end_time = simulation_params[G_SIM_END_TIME]
 
         delta = end_time - start_time
         nonlocal candidate_nodes
@@ -167,8 +174,6 @@ def make_gaussian_demand_generator(n_hotspots=5,
         demand_path.mkdir(exist_ok=True, parents=True)
 
         trips["request_id"] = trips.index
-        out_file_name = f"hotspot-separate-{len(trips)}-{start_time}-to-{end_time}-{simulation_params[G_RANDOM_SEED]}.csv"
-        out_file_path = demand_path / out_file_name
         trips.to_csv(out_file_path, columns=["rq_time", "start", "end", "request_id"], index=False)
 
         return out_file_name, out_file_path
