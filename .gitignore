@@ -1,6 +1,9 @@
 # private simulation scripts (private copies of bugfix_or_run.py with modifications for specific scenarios)
 run_private*.py
 
+Dockerfile
+docker-compose.yml
+
 results/*
 
 # data directories except for example
