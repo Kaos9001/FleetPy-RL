@@ -97,7 +97,7 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
 
         self.max_time_to_midpoint = operator_attributes.get(G_OP_HUB_MID_DUR, LARGE_INT)
         self.round_trip_max_duration = operator_attributes.get(G_OP_HUB_RT_DUR, LARGE_INT)
-        self.idle_wait_time = 300
+        self.idle_wait_time = operator_attributes.get(G_OP_HUB_IDLE_DUR, 0)
 
         # dict of vehicles in hub (vid -> -timestamp of departure if not in hub (active), else vid -> timestamp of arrival in hub)
         self.vehs_in_hub = {}
@@ -113,11 +113,11 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
             self.target_directions_dict[action_id] = node_pos
 
         self.wrong_action_penalty = 0 # 1/3
-        self.rw_rejection_penalty = 0.1 #1/7000 #0.05 # 0.1 # 1
+        self.rw_rejection_penalty = 0 #1/7000 #0.05 # 0.1 # 1
         self.rw_drive_distance_penalty = 0 #1/100000
         self.rw_waiting_time_penalty = 0 #1/6000
         self.rw_served_bonus = 0.1 #1/7000
-        self.action_cost = 0.1
+        self.action_cost = 0
         
         # grid specific
         self.n_nodes = self.routing_engine.get_number_network_nodes()
@@ -166,15 +166,21 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         if type(rl_action) is np.ndarray:
             rl_action = rl_action.item()
 
+        # No-op -2 action for non-rl, non-restricted heuristic-only scenario
+        if rl_action == -2:
+            return 
+
         # Set plan to go to midpoint and back
         veh_plan = self.veh_plans[veh_to_activate.vid]
-        direction_pos = self.target_directions_dict[rl_action]
         wait_stop = RLTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time,
                                      latest_start_time=simulation_time, duration=self.idle_wait_time)
         veh_plan.add_plan_stop(wait_stop, veh_to_activate, simulation_time, self.routing_engine)
-        rl_action_stop = RLTargetPlanStop(direction_pos, earliest_start_time=simulation_time,
-                                     latest_start_time=simulation_time + self.max_time_to_midpoint)
-        veh_plan.add_plan_stop(rl_action_stop, veh_to_activate, simulation_time, self.routing_engine)
+        # No-op -1 action for non-rl, roundtrip restricted heuristic-only scenario
+        if rl_action != -1:
+            direction_pos = self.target_directions_dict[rl_action]
+            rl_action_stop = RLTargetPlanStop(direction_pos, earliest_start_time=simulation_time,
+                                         latest_start_time=simulation_time + self.max_time_to_midpoint)
+            veh_plan.add_plan_stop(rl_action_stop, veh_to_activate, simulation_time, self.routing_engine)
         #return_to_hub_stop = RLTargetPlanStop(self.hub_pos, earliest_start_time=simulation_time,
         #                                      latest_start_time=simulation_time + self.round_trip_max_duration)
         #veh_plan.add_plan_stop(return_to_hub_stop, veh_to_activate, simulation_time, self.routing_engine)
@@ -185,8 +191,10 @@ class RLDirectedSingleHubPoolingFleetControl(RLAdapterMixin, RidePoolingBatchAss
         self.assign_vehicle_plan(veh_to_activate, veh_plan, simulation_time, add_arg=True)
 
     def receive_status_update(self, vid : int, simulation_time : int, list_finished_VRL : List[VehicleRouteLeg], force_update : bool=True):
-        if self.vehs_in_hub[vid] < 0 and len(self.sim_vehicles[vid].assigned_route) == 1:
+        if self.vehs_in_hub[vid] < 0 and len(self.sim_vehicles[vid].assigned_route) == 1 and self.sim_vehicles[vid].pos == self.hub_pos and self.sim_vehicles[vid].assigned_route[0].status == VRL_STATES.OUT_OF_SERVICE:
             self.vehs_in_hub[vid] = simulation_time
+            #if vid == 0:
+            #    print(f"{vid} back at hub at {simulation_time} with {[str(x) for x in list_finished_VRL]} and {[str(x) for x in self.sim_vehicles[vid].assigned_route]}")
 
         super().receive_status_update(vid, simulation_time, list_finished_VRL, force_update=force_update)
 
