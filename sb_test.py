@@ -54,8 +54,8 @@ class CNNHeadMk2(BaseFeaturesExtractor):
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0),
             nn.GroupNorm(num_groups=16, num_channels=128),
             nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=0),
-            nn.GroupNorm(num_groups=8, num_channels=128),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=0),
+            nn.GroupNorm(num_groups=8, num_channels=256),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
@@ -87,11 +87,11 @@ if __name__ == "__main__":
         "delete_temp_demand": True,
         "demand_generator": make_gaussian_demand_generator(n_hotspots=12,
                                                            baseline_strength=0.005,
-                                                           peak_fraction_range=(0.2, 0.8),
+                                                           peak_fraction_range=(0.1, 0.9),
                                                            strength_range=(0.05, 0.15),
                                                            temporal_spread_range=(1200, 3600),
                                                            spatial_spread_range=(400, 800), 
-                                                           balance_range=(0.3, 0.7)#, candidate_nodes=[0, 25, 50, 1275, 1325, 2550, 2575, 2600]
+                                                           balance_range=(0.3, 0.7), candidate_nodes=[0, 25, 50, 1275, 1325, 2550, 2575, 2600]
                                                           ),
     }
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
     model = DQN("MlpPolicy", env, verbose=1, tensorboard_log="/workspace/ext/fleetpy-rl/results/tensorboard/",
                 policy_kwargs=policy_kwargs,
-                learning_rate=cossine_annealling_schedule(5e-4, 5e-5),
+                learning_rate=cossine_annealling_schedule(1e-3, 5e-5),
                 exploration_fraction=0.5,
                 exploration_initial_eps=1,
                 batch_size=128,
@@ -120,9 +120,9 @@ if __name__ == "__main__":
     #model = A2C("MlpPolicy", env, verbose=1, tensorboard_log="/workspace/ext/fleetpy-rl/results/tensorboard/", policy_kwargs=policy_kwargs, learning_rate=5e-3)
     print("model created")
 
-    name = "state_cnnheadmk2_req_fix_no_penalty_dqn"
+    name = "rq_serveonly_nopen_40pax_candidates_15veh_3600time_180step_dqn"
     
-    model.learn(total_timesteps=750_000, progress_bar=True, tb_log_name=name)
+    model.learn(total_timesteps=500_000, progress_bar=True, tb_log_name=name)
     print("model learned")
     model.save(name)
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=20)

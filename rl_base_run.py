@@ -75,21 +75,23 @@ if __name__ == "__main__":
         "start_config_i": 0,
         "cc_file": "gaussian_rl_constant_config.csv",
         "sc_file": "gaussian_rl_scenario_config.csv",
+        "delete_temp_demand": False,
         "demand_generator": make_gaussian_demand_generator(n_hotspots=12,
                                                            baseline_strength=0.005,
-                                                           peak_fraction_range=(0.2, 0.8),
+                                                           peak_fraction_range=(0.1, 0.9),
                                                            strength_range=(0.05, 0.15),
-                                                           temporal_spread_range=(1200, 2400),
+                                                           temporal_spread_range=(1200, 3600),
                                                            spatial_spread_range=(400, 800), 
-                                                           balance_range=(0.3, 0.7)#, candidate_nodes=[0, 25, 50, 1275, 1325, 2550, 2575, 2600]
+                                                           balance_range=(0.3, 0.7), candidate_nodes=[0, 25, 50, 1275, 1325, 2550, 2575, 2600]
                                                           ),
     }
 
     env = FleetPyEnv(RL_config)
 
-    observation, info = env.reset(seed=42)
+    observation, info = env.reset(seed=473247562)
 
     model = DQN.load("state_cnnheadmk2_req_fix_large_penalty_dqn")
+    print(model.policy)
 
     episode_over = False
     actions = []
@@ -97,8 +99,8 @@ if __name__ == "__main__":
     with tqdm(total=env.SF.end_time) as pbar:
         while not episode_over:
             action = model.predict(observation)[0].item()
-            #action = env.action_space.sample()
-            #action = 1
+            #action = int(env.action_space.sample())
+            #action = -1
             actions.append(action)
             #print(env.rl_adapter.vehs_in_hub)
             
