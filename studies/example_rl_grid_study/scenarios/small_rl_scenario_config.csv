@@ -1,0 +1,2 @@
+scenario_name,op_fleet_composition,op_init_veh_distribution,end_time
+gaussian_rl_gridworld,microvan_vehtype:30,init_veh_dist.csv,21600
