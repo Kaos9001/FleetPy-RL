@@ -1,2 +1,2 @@
 op_module,scenario_name,op_fleet_composition,op_init_veh_distribution
-RLDirectedSingleHubPoolingFleetControl,gaussian_rl_gridworld,microvan_vehtype:20,init_veh_dist.csv
+RLDirectedSingleHubPoolingFleetControl,gaussian_rl_gridworld,microvan_vehtype:15,init_veh_dist.csv

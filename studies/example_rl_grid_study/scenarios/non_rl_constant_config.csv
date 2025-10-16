@@ -19,6 +19,7 @@ infra_structure_name,rl_grid
 log_level,info
 skip_file_writing,0
 ##2,FleetControl
+op_module,RidePoolingBatchAssignmentFleetcontrol
 op_min_wait_time,0
 op_max_wait_time,900
 op_max_wait_time_2,900

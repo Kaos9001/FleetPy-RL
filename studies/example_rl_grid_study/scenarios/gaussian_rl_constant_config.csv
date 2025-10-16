@@ -19,6 +19,7 @@ infra_structure_name,rl_grid
 log_level,info
 skip_file_writing,0
 ##2,FleetControl
+op_module,RLDirectedSingleHubPoolingFleetControl
 op_min_wait_time,0
 op_max_wait_time,900
 op_max_wait_time_2,900
@@ -34,12 +35,13 @@ op_distance_fare,0.1
 op_time_fare,0
 op_min_standard_fare,40
 op_vr_control_func_dict,func_key:distance_and_user_times_with_walk;vot:0.45
-op_reoptimisation_timestep,300
+op_reoptimisation_timestep,180
 op_rl_action_timestep,180
 op_rp_batch_optimizer,InsertionHeuristic
 op_init_veh_distribution,init_veh_dist.csv
 op_hub_roundtrip_max_duration,3600
-op_hub_max_time_to_midpoint,2100
+op_hub_max_time_to_midpoint,3600
+op_hub_idle_wait_duration,600
 ##3,TravelerModel
 ##4,PublicTransport
 ##5,DynamicNetwork and PT Crowding
