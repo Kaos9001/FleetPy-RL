@@ -33,20 +33,25 @@ class FleetPyEnv(gym.Env):
         use_case: str = rl_config["use_case"]
         start_config_i = rl_config["start_config_i"]
         cc_file = rl_config["cc_file"]
-        sc_file = rl_config["sc_file"]
+        sc_file = rl_config.get("sc_file", None)
         self.use_case: str = use_case
 
-        # Setup scenario from config files
-        scs_path = os.path.join(os.path.dirname(__file__), "studies", rl_config["scenario_name"], "scenarios")
-        cc = os.path.join(scs_path, cc_file)
-        sc = os.path.join(scs_path, sc_file)
         if use_case == "train" or use_case == "baseline" or use_case == "zbaseline" or use_case.endswith("result"):
             log_level = "info"
         elif use_case == "test" or use_case == "baseline_test" or use_case == "zbaseline_test":
             log_level = "debug"
 
+        # Setup scenario from config files
+        scs_path = os.path.join(os.path.dirname(__file__), "studies", rl_config["scenario_name"], "scenarios")
+        cc = os.path.join(scs_path, cc_file)
+
+        if sc_file:
+            sc = os.path.join(scs_path, sc_file)
+            scenario_cfgs = config.ScenarioConfig(sc)
+        else:
+            scenario_cfgs = rl_config.get("sc_override", [{}])
+
         constant_cfg = config.ConstantConfig(cc)
-        scenario_cfgs = config.ScenarioConfig(sc)
         const_abs = os.path.abspath(cc)
         study_name = os.path.basename(os.path.dirname(os.path.dirname(const_abs)))
 
