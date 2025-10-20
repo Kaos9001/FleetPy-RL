@@ -33,8 +33,10 @@ def connect_with_tt_matrix(tt_m, n_df, e_df, so_df, check_outgoing, check_incomi
             t_pos_y = n_df.loc[to_n, "pos_y"]
             if (t_pos_x - f_pos_x)**2 + (t_pos_y - f_pos_y)**2 <= SQ_MAX_DIST:
                 if tt_m[to_n,test_node] < TEST_VAL:
-                    e_df = e_df.append({"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
-                                        "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}, ignore_index=True)
+                    #e_df = e_df.append({"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
+                    #                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}, ignore_index=True)
+                    e_df = pd.concat([e_df, pd.DataFrame([{"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
+                                        "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}])], ignore_index=True)
                     add_io_edge_counter += 1
                     found_for_n.add(to_n)
                     found_for_n.add(from_n)
@@ -53,8 +55,10 @@ def connect_with_tt_matrix(tt_m, n_df, e_df, so_df, check_outgoing, check_incomi
             if from_n == to_n or to_n in so_df.index:
                 continue
             if tt_m[to_n, test_node] < TEST_VAL:
-                e_df = e_df.append({"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
-                                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}, ignore_index=True)
+                #e_df = e_df.append({"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
+                #                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}, ignore_index=True)
+                e_df = pd.concat([e_df, pd.DataFrame([{"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
+                                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}])], ignore_index=True)
                 add_other_edge_counter += 1
                 found_for_n.add(to_n)
                 found_for_n.add(from_n)
@@ -71,8 +75,10 @@ def connect_with_tt_matrix(tt_m, n_df, e_df, so_df, check_outgoing, check_incomi
             if from_n == to_n  or from_n in so_df.index:
                 continue
             if tt_m[test_node, from_n] < TEST_VAL:
-                e_df = e_df.append({"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
-                                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}, ignore_index=True)
+                #e_df = e_df.append({"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
+                #                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}, ignore_index=True)
+                e_df = pd.concat([e_df, pd.DataFrame([{"from_node": from_n, "to_node": to_n, "distance": ASSUMED_TD_NSO,
+                                    "travel_time": ASSUMED_TT_NSO, "source_edge_id": ""}])], ignore_index=True)
                 add_other_edge_counter += 1
                 found_for_n.add(to_n)
                 found_for_n.add(from_n)
@@ -166,8 +172,10 @@ def add_edges_to_make_nw_completely_routable_tt_matrix(nw_main_dir):
             def_from_n = connect_dict[-1][0]
             for to_n in connect_dict[1]:
                 if tt_m[to_n, test_node] < TEST_VAL:
-                    e_df = e_df.append({"from_node": def_from_n, "to_node": to_n, "distance": ASSUMED_TD_SO,
-                                        "travel_time": ASSUMED_TT_SO, "source_edge_id": ""}, ignore_index=True)
+                    #e_df = e_df.append({"from_node": def_from_n, "to_node": to_n, "distance": ASSUMED_TD_SO,
+                    #                    "travel_time": ASSUMED_TT_SO, "source_edge_id": ""}, ignore_index=True)
+                    e_df = pd.concat([e_df, pd.DataFrame([{"from_node": def_from_n, "to_node": to_n, "distance": ASSUMED_TD_SO,
+                                        "travel_time": ASSUMED_TT_SO, "source_edge_id": ""}])], ignore_index=True)
                     add_so_edge_counter += 1
                     found_for_n.add(to_n)
             found_for_n.add(def_from_n)
@@ -175,8 +183,10 @@ def add_edges_to_make_nw_completely_routable_tt_matrix(nw_main_dir):
             # from 0 -> 0 already was made
             for from_n in connect_dict[-1][1:]:
                 if tt_m[test_node, from_n] < TEST_VAL:
-                    e_df = e_df.append({"from_node": from_n, "to_node": def_to_n, "distance": ASSUMED_TD_SO,
-                                        "travel_time": ASSUMED_TT_SO, "source_edge_id": ""}, ignore_index=True)
+                    #e_df = e_df.append({"from_node": from_n, "to_node": def_to_n, "distance": ASSUMED_TD_SO,
+                    #                    "travel_time": ASSUMED_TT_SO, "source_edge_id": ""}, ignore_index=True)
+                    e_df = pd.concat([e_df, pd.DataFrame([{"from_node": from_n, "to_node": def_to_n, "distance": ASSUMED_TD_SO,
+                                        "travel_time": ASSUMED_TT_SO, "source_edge_id": ""}])], ignore_index=True)
                     add_so_edge_counter += 1
                     found_for_n.add(from_n)
     print(f"\tadded {add_so_edge_counter} edges that are connected via a stop-only node")
